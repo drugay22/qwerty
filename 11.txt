@@ -1,0 +1,286 @@
+import mysql.connector
+from mysql.connector import Error
+import tkinter
+from tkinter import ttk, messagebox
+import module4
+
+
+class PartnerApp(tkinter.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("РЎРїРёСЃРѕРє РїР°СЂС‚РЅРµСЂРѕРІ")
+        self.geometry("800x600")
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+        # self.iconphoto(False, tkinter.PhotoImage(file=''))
+        self.current_frame = None
+        self.show_main_page()
+
+    def show_main_page(self):
+        if self.current_frame:
+            self.current_frame.destroy()
+        self.current_frame = MainPage(self)
+        self.current_frame.configure(bg='#FFFFFF')
+        self.current_frame.pack(fill='both', expand=True)
+
+    def show_edit_partner(self, partner=None):
+        if self.current_frame:
+            self.current_frame.destroy()
+        self.current_frame = PartnerForm(self, partner)
+        self.current_frame.configure(bg='#FFFFFF')
+        self.current_frame.pack(fill='both', expand=True)
+
+    def on_closing(self):
+        if messagebox.askokcancel("Р—Р°РєСЂС‹С‚СЊ РѕРєРЅРѕ", "РҐРѕС‚РёС‚Рµ Р·Р°РєРѕРЅС‡РёС‚СЊ?"):
+            self.destroy()
+
+
+class MainPage(tkinter.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+        self.create_widgets()
+        self.load_partners()
+
+    def create_widgets(self):
+        self.canvas = tkinter.Canvas(self, bg='#FFFFFF')
+        self.scrollbar = tkinter.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.scrollbar_frame = tkinter.Frame(self.canvas, bg='#FFFFFF')
+
+        self.scrollbar_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            )
+        )
+
+        self.canvas.create_window((0, 0), window=self.scrollbar_frame, anchor="nw", width=600)
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.label = tkinter.Label(self.scrollbar_frame, text="Р”Р°РЅРЅС‹Рµ Рѕ РїР°СЂС‚РЅРµСЂРµ", font=('Segoe UI', 18), bg='#FFFFFF')
+        self.label.pack(pady=10)
+
+        self.add_button = tkinter.Button(self.scrollbar_frame, text="Р”РѕР±Р°РІРёС‚СЊ",
+                                         command=lambda: self.parent.show_edit_partner(), bg='#67BA80')
+        self.add_button.pack(anchor='ne', padx=10)
+        self.refresh_button = tkinter.Button(self.scrollbar_frame, text="РћР±РЅРѕРІРёС‚СЊ", command=self.parent.show_main_page,
+                                             bg='#67BA80')
+        self.refresh_button.pack(anchor='nw', padx=10)
+
+        self.mat_method = tkinter.Button(self.scrollbar_frame, text="Р Р°СЃС‡РµС‚ РјР°С‚РµСЂРёР°Р»РѕРІ",
+                                         command=self.open_material_calculate)
+        self.mat_method.pack()
+
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar.pack(side="right", fill="y")
+
+    def load_partners(self):
+        connection = mysql.connector.connect(
+            host='192.168.200.18',
+            user='IS_41',
+            password='Eifoz9wi',
+            database='IS_41',
+            ssl_disabled=True
+        )
+        cursor = connection.cursor()
+        try:
+            def data_get_1():
+                cursor.execute("""
+                            SELECT PPI.РќР°РёРјРµРЅРѕРІР°РЅРёРµ_РїР°СЂС‚РЅРµСЂР°, SUM(PPI.РљРѕР»РёС‡РµСЃС‚РІРѕ_РїСЂРѕРґСѓРєС†РёРё)
+                            FROM Partner_products_import PPI
+                            GROUP BY PPI.РќР°РёРјРµРЅРѕРІР°РЅРёРµ_РїР°СЂС‚РЅРµСЂР°
+                            """)
+                return cursor.fetchall()
+
+            def data_get_2():
+                cursor.execute("SELECT * FROM Partners_import_csv")
+                return cursor.fetchall()
+
+            result = data_get_1()
+            discounts = {}
+            for РќР°РёРјРµРЅРѕРІР°РЅРёРµ_РїР°СЂС‚РЅРµСЂР°, РљРѕР»РёС‡РµСЃС‚РІРѕ_РїСЂРѕРґСѓРєС†РёРё in result:
+                if РљРѕР»РёС‡РµСЃС‚РІРѕ_РїСЂРѕРґСѓРєС†РёРё < 10000:
+                    discount = 0
+                elif 10000 <= РљРѕР»РёС‡РµСЃС‚РІРѕ_РїСЂРѕРґСѓРєС†РёРё <= 50000:
+                    discount = 5
+                elif 50000 <= РљРѕР»РёС‡РµСЃС‚РІРѕ_РїСЂРѕРґСѓРєС†РёРё <= 300000:
+                    discount = 10
+                else:
+                    discount = 15
+                discounts[РќР°РёРјРµРЅРѕРІР°РЅРёРµ_РїР°СЂС‚РЅРµСЂР°] = discount
+            data = data_get_2()
+
+            for row in data:
+                self.data_button = tkinter.Button(self.scrollbar_frame, command=lambda r=row: self.edit_partner(r),
+                                                  bg='#F4E8D3')
+                self.data_button.pack(expand=True, fill='x', padx=10, pady=10)
+                self.label_data = tkinter.Label(self.data_button,
+                                                text=f'{row[0]}   {row[1]}\n{row[2]}\n{row[3]}\n{row[4]}\n{row[5]}\n{row[6]}\n{row[7]}\n{row[8]}',
+                                                font=('Segoe UI', 8), bg='#F4E8D3')
+                self.label_data.pack(side='left')
+                discount = discounts.get(row[2], 0)
+                self.label_sale = tkinter.Label(self.data_button, text=f'{discount}%', font=('Segoe UI', 15),
+                                                bg='#F4E8D3')
+                self.label_sale.pack(side='right')
+                self.history_data = tkinter.Button(self.data_button, text="РСЃС‚РѕСЂРёСЏ",
+                                                   command=lambda r=row: self.show_history_sales(r[1]))
+                self.history_data.pack()
+
+        except Error as e:
+            messagebox.showerror("РћС€РёР±РєР°", f'РћС€РёР±РєР° РїРѕРґРєР»СЋС‡РµРЅРёСЏ Рє Р±Р°Р·Рµ РґР°РЅРЅС‹С…: {e}')
+        finally:
+            if connection:
+                connection.close()
+
+    def show_history_sales(self, partner):
+        history_window = module4.SalesHistory(self.parent, partner)
+        history_window.grab_set()
+
+    def open_material_calculate(self):
+        sale_window = module4.MaterialCalculate(self.parent)
+        sale_window.grab_set()
+
+    def edit_partner(self, r):
+        self.parent.show_edit_partner(r)
+
+
+class PartnerForm(tkinter.Frame):
+    def __init__(self, parent, partner=None):
+        super().__init__(parent)
+        self.parent = parent
+        self.partner = partner
+        self.create_widget()
+
+    def create_widget(self):
+        self.label = tkinter.Label(self, text="Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ/Р”РѕР±Р°РІРёС‚СЊ", font=('Segoe UI', 14))
+        self.label.pack(pady=5)
+
+        self.type_label = tkinter.Label(self, text="РўРёРї РїР°СЂС‚РЅС‘СЂР°", font=('Segoe UI', 13))
+        self.type_label.pack()
+        self.type_box = ttk.Combobox(self, values=['РћРћРћ', 'РћРђРћ', 'Р—РђРћ', 'РџРђРћ', 'РРџ'])
+        self.type_box.pack()
+
+        self.nam_label = tkinter.Label(self, text="РР”", font=('Segoe UI', 13))
+        self.nam_label.pack()
+        self.entry_id = tkinter.Entry(self)
+        self.entry_id.pack()
+
+        self.name_label = tkinter.Label(self, text="РќР°Р·РІР°РЅРёРµ", font=('Segoe UI', 13))
+        self.name_label.pack()
+        self.entry_name = tkinter.Entry(self)
+        self.entry_name.pack()
+
+        self.director_label = tkinter.Label(self, text="Р”РёСЂРµРєС‚РѕСЂ", font=('Segoe UI', 13))
+        self.director_label.pack()
+        self.entry_director = tkinter.Entry(self)
+        self.entry_director.pack()
+
+        self.email_label = tkinter.Label(self, text="РџРѕС‡С‚Р°", font=('Segoe UI', 13))
+        self.email_label.pack()
+        self.entry_email = tkinter.Entry(self)
+        self.entry_email.pack()
+
+        self.number_label = tkinter.Label(self, text="РўРµР»РµС„РѕРЅ", font=('Segoe UI', 13))
+        self.number_label.pack()
+        self.entry_number = tkinter.Entry(self)
+        self.entry_number.pack()
+
+        self.address_label = tkinter.Label(self, text="РђРґСЂРµСЃ", font=('Segoe UI', 13))
+        self.address_label.pack()
+        self.entry_address = tkinter.Entry(self)
+        self.entry_address.pack()
+
+        self.inn_label = tkinter.Label(self, text="РРЅРЅ", font=('Segoe UI', 13))
+        self.inn_label.pack()
+        self.entry_inn = tkinter.Entry(self)
+        self.entry_inn.pack()
+
+        self.index_label = tkinter.Label(self, text="Р РµР№С‚РёРЅРі", font=('Segoe UI', 13))
+        self.index_label.pack()
+        self.entry_index = tkinter.Entry(self)
+        self.entry_index.pack()
+
+        self.save_button = tkinter.Button(self, text="РЎРѕС…СЂР°РЅРёС‚СЊ", command=self.save_partner)
+        self.save_button.pack(pady=10)
+        self.back_button = tkinter.Button(self, text="РќР°Р·Р°Рґ", command=self.parent.show_main_page)
+        self.back_button.pack()
+
+        if self.partner:
+            self.fill_form()
+
+    def fill_form(self):
+        if len(self.partner) > 8:
+            self.entry_id.insert(0, self.partner[0])
+            self.type_box.set(self.partner[1])
+            self.entry_name.insert(0, self.partner[2])
+            self.entry_director.insert(0, self.partner[3])
+            self.entry_email.insert(0, self.partner[4])
+            self.entry_number.insert(0, self.partner[5])
+            self.entry_address.insert(0, self.partner[6])
+            self.entry_inn.insert(0, self.partner[7])
+            self.entry_index.insert(0, self.partner[8])
+
+    def save_partner(self):
+        try:
+            id = self.entry_id.get()
+            type = self.type_box.get()
+            name = self.entry_name.get()
+            direct = self.entry_director.get()
+            email = self.entry_email.get()
+            number = self.entry_number.get()
+            address = self.entry_address.get()
+            inn = self.entry_inn.get()
+            index = int(self.entry_index.get())
+
+            if not name or not type or not direct or not email or not number or not address or not inn or not index:
+                raise ValueError("Р—Р°РїРѕР»РЅРёС‚Рµ РІСЃРµ РїРѕР»СЏ")
+            if index < 0:
+                raise ValueError("Р РµР№С‚РёРЅРі РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РѕС‚СЂРёС†Р°С‚РµР»СЊРЅС‹Рј")
+            connection = mysql.connector.connect(
+                host='192.168.200.18',
+                user='IS_41',
+                password='Eifoz9wi',
+                database='IS_41',
+                ssl_disabled=True
+            )
+            cursor = connection.cursor()
+            if self.partner:
+                cursor.execute("""
+                    UPDATE Partners_import_csv SET
+                    РР” = %s,
+                    РўРёРї_РїР°СЂС‚РЅРµСЂР° = %s,
+                    РќР°РёРјРµРЅРѕРІР°РЅРёРµ_РїР°СЂС‚РЅРµСЂР° = %s,
+                    Р”РёСЂРµРєС‚РѕСЂ = %s,
+                    Р­Р»РµРєС‚СЂРѕРЅРЅР°СЏ_РїРѕС‡С‚Р°_РїР°СЂС‚РЅРµСЂР° = %s,
+                    РўРµР»РµС„РѕРЅ_РїР°СЂС‚РЅРµСЂР° = %s,
+                    Р®СЂРёРґРёС‡РµСЃРєРёР№_Р°РґСЂРµСЃ_РїР°СЂС‚РЅРµСЂР° = %s,
+                    Р РµР№С‚РёРЅРі = %s
+                    WHERE РРќРќ = %s
+                    """, (id, type, name, direct, email, number, address, index, inn))
+            else:
+                cursor.execute("""INSERT INTO Partners_import_csv(
+                                    РР”,
+                                    РўРёРї_РїР°СЂС‚РЅРµСЂР°, 
+                                    РќР°РёРјРµРЅРѕРІР°РЅРёРµ_РїР°СЂС‚РЅРµСЂР°,
+                                    Р”РёСЂРµРєС‚РѕСЂ, 
+                                    Р­Р»РµРєС‚СЂРѕРЅРЅР°СЏ_РїРѕС‡С‚Р°_РїР°СЂС‚РЅРµСЂР°, 
+                                    РўРµР»РµС„РѕРЅ_РїР°СЂС‚РЅРµСЂР°, 
+                                    Р®СЂРёРґРёС‡РµСЃРєРёР№_Р°РґСЂРµСЃ_РїР°СЂС‚РЅРµСЂР°, 
+                                    РРќРќ, 
+                                    Р РµР№С‚РёРЅРі) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                               (id, type, name, direct, email, number, address, inn, index))
+            connection.commit()
+            messagebox.showinfo("РЈСЃРїРµС…", "Р”Р°РЅРЅС‹Рµ СѓСЃРїРµС€РЅРѕ СЃРѕС…СЂР°РЅРµРЅС‹")
+            self.parent.show_main_page()
+        except ValueError as ve:
+            messagebox.showerror("РћС€РёР±РєР° РІР°Р»РёРґР°С†РёРё", ve)
+        except Error as e:
+            messagebox.showerror("РћС€РёР±РєР° РїРѕРґРєР»СЋС‡РµРЅРёСЏ", e)
+        finally:
+            if connection.is_connected():
+                cursor.close()
+                connection.close()
+
+
+if __name__ == '__main__':
+    app = PartnerApp()
+    app.mainloop()

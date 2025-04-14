@@ -1,0 +1,140 @@
+import mysql.connector
+from mysql.connector import Error
+import tkinter
+from tkinter import ttk, messagebox
+
+
+class SalesHistory(tkinter.Toplevel):
+    def __init__(self, parent, partner_name):
+        super().__init__(parent)
+        self.title(f"РСЃС‚РѕСЂРёСЏ СЂРµР°Р»РёР·Р°С†РёРё РґР»СЏ: {partner_name}")
+        self.geometry('500x500')
+        # self.iconphoto(False, tkinter.PhotoImage(file=''))
+        self.table = ttk.Treeview(self, columns=("Product", "Quantity", "Data"), show='headings')
+        self.table.pack(expand=True, fill='both')
+        self.table.heading('Product', text='РџСЂРѕРґСѓРєС†РёСЏ')
+        self.table.heading('Quantity', text='РљРѕР»РёС‡РµСЃС‚РІРѕ')
+        self.table.heading('Data', text='Р”Р°С‚Р°')
+        self.load_sales_history(partner_name)
+
+    def load_sales_history(self, partner_name):
+        connection = mysql.connector.connect(
+            host='192.168.200.18',
+            user='IS_41',
+            password='Eifoz9wi',
+            database='IS_41',
+            ssl_disabled=True
+        )
+        cursor = connection.cursor()
+        try:
+            cursor.execute('''
+            SELECT РџСЂРѕРґСѓРєС†РёСЏ, РљРѕР»РёС‡РµСЃС‚РІРѕ_РїСЂРѕРґСѓРєС†РёРё, Р”Р°С‚Р°_РїСЂРѕРґР°Р¶Рё
+            FROM Partner_products_import
+            WHERE РќР°РёРјРµРЅРѕРІР°РЅРёРµ_РїР°СЂС‚РЅРµСЂР°=%s
+            ''', (partner_name,))
+            records = cursor.fetchall()
+            for row in records:
+                self.table.insert("", 'end', values=row)
+
+        except Error as e:
+            messagebox.showerror("РћС€РёР±РєР°", f'РћС€РёР±РєР° РїРѕРґРєР»СЋС‡РµРЅРёСЏ Рє Р±Р°Р·Рµ РґР°РЅРЅС‹С…: {e}')
+
+        finally:
+            if connection.is_connected():
+                connection.close()
+
+class MaterialCalculate(tkinter.Toplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("Р Р°СЃС‡С‘С‚ РєРѕР»РёС‡РµСЃС‚РІР° РјР°С‚РµСЂРёР°Р»Р°")
+        self.geometry('500x500')
+        self.create_widgets()
+
+    def create_widgets(self):
+        tkinter.Label(self, text="Р’РІРµРґРёС‚Рµ С‚РёРї РјР°С‚РµСЂРёР°Р»Р°", font=('Segoe UI', 10)).grid(row=0, column=0)
+        self.entry_matID = tkinter.Entry(self)
+        self.entry_matID.grid(row=0, column=1)
+
+        tkinter.Label(self, text="Р’РІРµРґРёС‚Рµ С‚РёРї РїСЂРѕРґСѓРєС†РёРё", font=('Segoe UI', 10)).grid(row=1, column=0)
+        self.entry_typeID = tkinter.Entry(self)
+        self.entry_typeID.grid(row=1, column=1)
+
+        tkinter.Label(self, text="Р’РІРµРґРёС‚Рµ РєРѕР»РёС‡РµСЃС‚РІРѕ РїСЂРѕРґСѓРєС†РёРё", font=('Segoe UI', 10)).grid(row=2, column=0)
+        self.entry_quantID = tkinter.Entry(self)
+        self.entry_quantID.grid(row=2, column=1)
+
+        tkinter.Label(self, text="Р’РІРµРґРёС‚Рµ РґР»РёРЅСѓ", font=('Segoe UI', 10)).grid(row=3, column=0)
+        self.entry_param1 = tkinter.Entry(self)
+        self.entry_param1.grid(row=3, column=1)
+
+        tkinter.Label(self, text="Р’РІРµРґРёС‚Рµ С€РёСЂРёРЅСѓ", font=('Segoe UI', 10)).grid(row=4, column=0)
+        self.entry_param2 = tkinter.Entry(self)
+        self.entry_param2.grid(row=4, column=1)
+
+        tkinter.Button(self, text="Р Р°СЃСЃС‡РёС‚Р°С‚СЊ", command=self.on_calculate).grid(row=5, column=0, columnspan=2)
+
+    def on_calculate(self):
+        product_ID = int(self.entry_typeID.get())
+        material_ID = int(self.entry_matID.get())
+        quantity = int(self.entry_quantID.get())
+        param1 = float(self.entry_param1.get())
+        param2 = float(self.entry_param2.get())
+
+        if param1 <= 0 or param2 <= 0 or quantity <= 0:
+            return
+
+        result = self.calulate(product_ID, material_ID, quantity, param1, param2)
+
+        if result == -1:
+            messagebox.showerror("РћС€РёР±РєР°", "РћС€РёР±РєР° СЂР°СЃС‡С‘С‚Р°")
+        else:
+            messagebox.showinfo("Р РµР·СѓР»СЊС‚Р°С‚", f"РќРµРѕР±С…РѕРґРёРјРѕ РјР°С‚РµСЂРёР°Р»Р°: {result}")
+
+    def calulate(self, product_ID, material_ID, quantity, param1, param2):
+        connection = mysql.connector.connect(
+            host='192.168.200.18',
+            user='IS_41',
+            password='Eifoz9wi',
+            database='IS_41',
+            ssl_disabled=True
+        )
+        cursor = connection.cursor()
+        try:
+            cursor.execute('''
+            SELECT РџСЂРѕС†РµРЅС‚_Р±СЂР°РєР°_РјР°С‚РµСЂРёР°Р»Р°
+            FROM Material_type_import
+            WHERE РўРёРї_РјР°С‚РµСЂРёР°Р»Р°=%s
+            ''', (material_ID,))
+            defect_coeff = cursor.fetchone()
+            if defect_coeff is None:
+                return -1
+
+            cursor.execute('''
+            SELECT РљРѕСЌС„С„РёС†РёРµРЅС‚_С‚РёРїР°_РїСЂРѕРґСѓРєС†РёРё
+            FROM Product_type_import
+            WHERE РўРёРї_РїСЂРѕРґСѓРєС†РёРё=%s
+            ''', (product_ID,))
+            type_coeff = cursor.fetchone()
+            if type_coeff is None:
+                return -1
+
+            print(param1)
+            print(param2)
+            print(type_coeff[0])
+            material_one = param1 * param2 * type_coeff[0]
+            total_sale = material_one * quantity * (1 + defect_coeff[0] / 100)
+            return round(total_sale)
+
+        except Error as e:
+            messagebox.showerror("РћС€РёР±РєР° РїСЂРё РїРѕРґРєР»СЋС‡РµРЅРёРё: ", e)
+
+        finally:
+            if connection.is_connected():
+                cursor.close()
+                connection.close()
+
+
+if __name__ == '__main__':
+    root = tkinter.Tk()
+    app = SalesHistory(root, "Partner")
+    app.mainloop()
